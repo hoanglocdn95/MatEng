@@ -1,0 +1,19 @@
+{
+  "name": "MatEng — Toán bằng tiếng Anh thật dễ",
+  "short_name": "MatEng",
+  "description": "Bài học Toán tiếng Anh cơ bản dành cho học sinh tiểu học Việt Nam.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f6fbff",
+  "theme_color": "#15345b",
+  "lang": "vi",
+  "icons": [
+    {
+      "src": "./assets/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
