@@ -1,11 +1,11 @@
-const CACHE = "mateng-v1";
+const CACHE = "mateng-v4";
 const ASSETS = [
   "./",
   "./index.html",
   "./manifest.webmanifest",
-  "./assets/styles.css",
-  "./assets/data.js",
-  "./assets/app.js",
+  "./assets/styles.css?v=4",
+  "./assets/data.js?v=4",
+  "./assets/app.js?v=4",
   "./assets/icon.svg"
 ];
 
@@ -22,12 +22,19 @@ self.addEventListener("activate", (event) => {
 });
 
 self.addEventListener("fetch", (event) => {
-  if (event.request.method !== "GET") return;
+  if (event.request.method !== "GET" || new URL(event.request.url).origin !== self.location.origin) return;
   event.respondWith(
-    caches.match(event.request).then((cached) => cached || fetch(event.request).then((response) => {
-      const copy = response.clone();
-      caches.open(CACHE).then((cache) => cache.put(event.request, copy));
+    fetch(event.request).then((response) => {
+      if (response.ok) {
+        const copy = response.clone();
+        caches.open(CACHE).then((cache) => cache.put(event.request, copy));
+      }
       return response;
-    }).catch(() => caches.match("./index.html")))
+    }).catch(async () => {
+      const cached = await caches.match(event.request);
+      if (cached) return cached;
+      if (event.request.mode === "navigate") return caches.match("./index.html");
+      throw new Error("MatEng is offline and this file is not cached.");
+    })
   );
 });

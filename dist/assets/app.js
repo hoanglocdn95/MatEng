@@ -96,13 +96,63 @@
           <button class="brand" data-route="home" aria-label="Về trang hôm nay"><span class="brand-mark"></span><span>MatEng</span></button>
           <nav class="desktop-nav" aria-label="Điều hướng chính">${navButtons}</nav>
           <span class="topbar-spacer"></span>
-          <button class="grade-chip" data-route="adult" aria-label="Đổi lớp">Lớp ${state.grade}</button>
+          <button class="grade-chip" data-action="open-grade-picker" aria-label="Đổi lớp, đang học lớp ${state.grade}" aria-haspopup="dialog" aria-expanded="false"><span>Lớp ${state.grade}</span><span class="grade-chip-caret" aria-hidden="true">⌄</span></button>
           <button class="icon-button" data-action="toggle-sound" aria-label="${state.sound ? "Tắt âm thanh" : "Bật âm thanh"}">${icon(state.sound ? "sound" : "muted")}</button>
         </div>
       </header>
+      <div class="grade-picker-backdrop" data-grade-picker hidden>
+        <section class="grade-picker" role="dialog" aria-modal="true" aria-labelledby="grade-picker-title">
+          <div class="grade-picker-header">
+            <div><p class="eyebrow">Chọn chương trình</p><h2 id="grade-picker-title">Con đang học lớp mấy?</h2></div>
+            <button class="grade-picker-close" data-action="close-grade-picker" aria-label="Đóng bộ chọn lớp">×</button>
+          </div>
+          <p class="subtle">Chuyển lớp bất cứ lúc nào. Tiến độ của từng bài vẫn được giữ nguyên trên thiết bị này.</p>
+          <div class="grade-picker-grid">
+            ${curriculum.map((grade) => {
+              const active = grade.id === state.grade;
+              const total = grade.units.reduce((sum, unit) => sum + unit.lessons.length, 0);
+              return `<button class="grade-picker-option ${active ? "active" : ""}" data-action="choose-grade" data-grade="${grade.id}" aria-pressed="${active}"><span class="grade-picker-number">${grade.id}</span><span><strong>Lớp ${grade.id}</strong><small>${total} bài · ${grade.note}</small></span>${active ? '<span class="grade-picker-check" aria-hidden="true">✓</span>' : ""}</button>`;
+            }).join("")}
+          </div>
+        </section>
+      </div>
       <main id="app-main">${content}</main>
       <nav class="bottom-nav" aria-label="Điều hướng di động">${navButtons}</nav>
     `;
+  }
+
+  function openGradePicker() {
+    const picker = document.querySelector("[data-grade-picker]");
+    if (!picker) return;
+    picker.hidden = false;
+    document.body.classList.add("grade-picker-open");
+    document.querySelector('[data-action="open-grade-picker"]')?.setAttribute("aria-expanded", "true");
+    picker.querySelector(".grade-picker-option.active")?.focus();
+  }
+
+  function closeGradePicker() {
+    const picker = document.querySelector("[data-grade-picker]");
+    if (!picker || picker.hidden) return;
+    picker.hidden = true;
+    document.body.classList.remove("grade-picker-open");
+    const trigger = document.querySelector('[data-action="open-grade-picker"]');
+    trigger?.setAttribute("aria-expanded", "false");
+    trigger?.focus();
+  }
+
+  function chooseGrade(grade) {
+    const selected = curriculum.find((item) => item.id === Number(grade));
+    if (!selected) return;
+    const changed = state.grade !== selected.id;
+    state.grade = selected.id;
+    saveState();
+    stopRecording();
+    lessonSession = null;
+    document.body.classList.remove("grade-picker-open");
+    history.replaceState(null, "", `${location.pathname}${location.search}`);
+    renderHome();
+    window.scrollTo({ top: 0, behavior: "smooth" });
+    showToast(changed ? `Đã chuyển sang lớp ${state.grade}.` : `Con đang học lớp ${state.grade}.`);
   }
 
   function renderOnboarding() {
@@ -417,14 +467,32 @@
   }
 
   function miniVisual(visual) {
-    const map = {
-      objects: visual.symbol.repeat(Math.min(visual.count, 5)), equation: `${visual.left}＋${visual.right}`, groups: `${visual.a}＋${visual.b}`,
-      shape: "△ ○ □", position: `${visual.top} ↑ ${visual.bottom}`, "position-row": `${visual.left} ${visual.right}`, "base-ten": "10＋1",
-      number: visual.value, "equation-text": visual.value, ruler: `↔ ${visual.value}cm`, lines: "━━ ━━━━━", clock: visual.minute === 30 ? "🕟" : "🕒",
-      array: `${visual.rows}×${visual.cols}`, fraction: visual.parts === 2 ? "½" : "¼", bars: "▥", compare: `${visual.left} ${visual.sign} ${visual.right}`,
-      angle: visual.kind === "right" ? "∟" : "∠", rectangle: "▭", grid: `${visual.rows}×${visual.cols}`, percent: `${visual.value}%`, cubes: "▦", conversion: `${visual.from}→${visual.to}`
-    };
-    return map[visual.type] || "＋ ＝";
+    if (!visual) return "＋ ＝";
+    switch (visual.type) {
+      case "objects": return String(visual.symbol || "●").repeat(Math.min(Number(visual.count) || 0, 5));
+      case "equation": return `${visual.left}＋${visual.right}`;
+      case "groups": return `${visual.a}＋${visual.b}`;
+      case "shape": return "△ ○ □";
+      case "position": return `${visual.top} ↑ ${visual.bottom}`;
+      case "position-row": return `${visual.left} ${visual.right}`;
+      case "base-ten": return "10＋1";
+      case "number":
+      case "equation-text": return visual.value;
+      case "ruler": return `↔ ${visual.value}cm`;
+      case "lines": return "━━ ━━━━━";
+      case "clock": return visual.minute === 30 ? "🕟" : "🕒";
+      case "array": return `${visual.rows}×${visual.cols}`;
+      case "fraction": return visual.parts === 2 ? "½" : "¼";
+      case "bars": return "▥";
+      case "compare": return `${visual.left} ${visual.sign} ${visual.right}`;
+      case "angle": return visual.kind === "right" ? "∟" : "∠";
+      case "rectangle": return "▭";
+      case "grid": return `${visual.rows}×${visual.cols}`;
+      case "percent": return `${visual.value}%`;
+      case "cubes": return "▦";
+      case "conversion": return `${visual.from}→${visual.to}`;
+      default: return "＋ ＝";
+    }
   }
 
   function speak(text) {
@@ -555,6 +623,9 @@
       onboardingGrade = Number(target.dataset.grade);
       return renderOnboarding();
     }
+    if (action === "open-grade-picker") return openGradePicker();
+    if (action === "close-grade-picker") return closeGradePicker();
+    if (action === "choose-grade") return chooseGrade(target.dataset.grade);
     if (action === "finish-onboarding") {
       state.grade = onboardingGrade;
       state.onboarded = true;
@@ -638,15 +709,15 @@
   app.addEventListener("change", (event) => {
     const target = event.target;
     if (target.dataset.action === "change-grade") {
-      state.grade = Number(target.value);
-      saveState();
-      renderAdult();
-      showToast(`Đã chuyển sang lớp ${state.grade}.`);
+      chooseGrade(target.value);
     }
   });
 
   window.addEventListener("hashchange", renderRoute);
   window.addEventListener("beforeunload", stopRecording);
+  window.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") closeGradePicker();
+  });
   if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
     window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js").catch(() => {}));
   }
