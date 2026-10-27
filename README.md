@@ -11,6 +11,11 @@ python3 -m http.server 4173
 
 Mở `http://localhost:4173`.
 
+## Triển khai
+
+Mỗi lần có commit mới trên nhánh `main`, workflow `Deploy MatEng to GitHub Pages`
+tự động xuất bản nội dung trong `dist/` lên GitHub Pages.
+
 ## Kiến trúc
 
 - `dist/index.html`: shell ứng dụng.
